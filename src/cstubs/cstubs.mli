@@ -11,6 +11,21 @@ module type FOREIGN =
 sig
   type 'a fn
   val foreign : string -> ('a -> 'b) Ctypes.fn -> ('a -> 'b) fn
+  val funptr : ('a -> 'b) Ctypes.fn -> ('a -> 'b) fn Ctypes.typ
+
+  open Ctypes
+  module Enum : sig
+    type 'a constr
+    type 'a t
+    type from = [ `Include of string | `Define of string * string ]
+
+    val macro : from:from list -> type_name:string -> ?use_module:string ->
+      ?default:string -> 'i typ -> 'a t -> 'a typ
+    val one : 'a constr list -> 'a t
+    val any : 'a constr list -> 'a t
+    val require : string -> 'a constr
+    val require_bits : string -> string -> 'a constr
+  end
 end
 
 module type BINDINGS = functor (F : FOREIGN) -> sig end

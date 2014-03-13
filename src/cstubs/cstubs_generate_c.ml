@@ -32,7 +32,7 @@ type ccomp = [ cexp
              | `Let of (string * ty) * ccomp * ccomp
              | `Deref of cexp ]
 type cfundec = [ `Function of string * string list * ccomp ]
-
+type cppdec = [ `Include of string | `Define of string * string ]
 let max_byte_args = 5
 
 let rec return_type : type a. a fn -> ty = function
@@ -137,6 +137,23 @@ struct
           else fprintf fmt "argv[%d])@]@]@];@\n}@." i
         done
       end
+
+  (* TODO: check pp *)
+  let rec cppdec fmt (cpp : cppdec list) = match cpp with
+    | [] -> ()
+    | (`Include s)::r -> (fprintf fmt "#@[include@;%s@]@\n" s; cppdec fmt r)
+    | (`Define (m,v))::r ->
+      (fprintf fmt "#@[define@;%s@;%s@]@\n" m v; cppdec fmt r)
+
+  (* TODO: check pp *)
+  let rec cmacro_checks fmt = function
+    | [] -> ()
+    | ctor::rest -> begin
+      fprintf fmt "#@[ifndef@;%s@]@\n" ctor;
+      fprintf fmt "#@[<h 2>error@;macro %s is required@]@\n" ctor;
+      fprintf fmt "#@[endif@]@\n";
+      cmacro_checks fmt rest
+    end
 end
 
 let value = abstract ~name:"value" ~size:0 ~alignment:0
@@ -317,7 +334,30 @@ struct
                                        `Let (y, inj t (`Local (x, Ty t)),
                                              `Return (`Local y))))))}
           { env = []; body = (fun e -> e); vars = [] } f
+
+  let export_macro : stub_name:string -> string -> cfundec =
+    fun ~stub_name c ->
+    (* TODO: unit -> int means what for the export prototype? *)
+      `Function (stub_name, [],
+                 let ret = (fresh_var (), Ty value) in
+                 `Let (ret, inj int (`Global {
+                   name = c;
+                   allocates = false;
+                   reads_ocaml_heap = false;
+                   tfn = Typ int;
+                 }),
+                       `Return (`Local ret)))
 end
 
 let fn ~cname  ~stub_name fmt fn =
   Emit_C.cfundec fmt (Generate_C.fn ~stub_name ~cname fn)
+
+let macro ~from ~stub_prefix fmt constructors =
+  Emit_C.cppdec fmt from;
+  Emit_C.cmacro_checks fmt constructors;
+  Format.fprintf fmt "@\n";
+  List.iter (fun c ->
+    let stub_name = stub_prefix^c in
+    Emit_C.cfundec fmt (Generate_C.export_macro ~stub_name c)
+  ) constructors;
+  Format.fprintf fmt "@\n";

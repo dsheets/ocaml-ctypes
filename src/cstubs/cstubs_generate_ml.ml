@@ -11,6 +11,11 @@ open Static
 open Ctypes_path
 open Cstubs_errors
 
+type cppdec = [ `Include of string | `Define of string * string ]
+type bits = Bits : _ Ctypes.typ -> bits
+type macro = Tag of string | Field of string * string
+type enum = One of macro list | Any of macro list
+
 type lident = string
 type ml_type = [ `Ident of path
 	       | `Appl of path * ml_type list
@@ -352,3 +357,203 @@ let case ~stub_name ~external_name fmt fn =
   Format.fprintf fmt "@[<hov 2>@[<h 2>|@ @[%S,@ @[%a@]@]@ ->@]@ "
     stub_name Emit_ML.(ml_pat NoApplParens) p;
   Format.fprintf fmt "@[<hov 2>@[%a@]@]@]@." Emit_ML.(ml_exp ApplParens) e
+
+let macro ~type_name ?use_module ?default ~stub_prefix ~bits fmt enum =
+  let constructors = match enum with One cl | Any cl -> cl in
+  let tags = List.fold_left (fun lst -> function
+    | Tag constr -> constr::lst
+    | Field (_,_) -> lst
+  ) [] constructors in
+  let fields = List.fold_left (fun lst -> function
+    | Tag _ -> lst
+    | Field (constr,ftype) -> (constr,ftype)::lst
+  ) [] constructors in
+  let f x = Format.fprintf fmt x in
+  (* TODO: other types than int for bitwise ops *)
+  let (Bits bits) = bits in
+  let bit_type = Ctypes.string_of_typ bits in
+  (* TODO: include signature *)
+  f "@[module %s = struct@]@\n@[<hov 2>  " (String.capitalize type_name);
+
+  (* main type *)
+  (match use_module with
+  | Some m -> f "@[type t = %s.%s@]@\n" m type_name
+  | None ->
+    f "@[type t = @]@\n";
+    List.iter (function
+    | Tag constr -> f "@[| %s@]\n" (String.capitalize constr)
+    | Field (constr, ftype) ->
+      f "@[| %s of %s list@]\n" (String.capitalize constr) ftype
+    ) constructors;
+  );
+
+  (* mechanical types *)
+  f "@[type defns = {@]@\n@[<hov 2>  ";
+  List.iter (function Tag constr | Field (constr,_) ->
+    f "@[%s : %s;@]@\n" (String.lowercase constr) bit_type;
+  ) constructors;
+  (match default with
+  | Some constr -> f "@[%s : %s;@]@\n" (String.lowercase constr) bit_type
+  | None -> ());
+  List.iter (function (_,ftype) ->
+    f "%s : %s.host;@\n" ftype (String.capitalize ftype);
+  ) fields;
+  f "@[_mask : %s;@]@]@\n" bit_type;
+  f "@[}@]@\n";
+  if List.length fields = 0
+  then f "@[type index = (%s,t) Hashtbl.t@]@\n" bit_type
+  else f "@[type index = (%s,%s -> t) Hashtbl.t@]@\n" bit_type bit_type;
+  f "@[type host = defns * index@]@\n@\n";
+
+  (* maps *)
+  f "@[let %s ~host = let (defns,_) = host in %s(function@]@\n"
+    (match enum with One _ -> "to_code" | Any _ -> "_to_code")
+    (match use_module with Some m -> m^"." | None -> "");
+  List.iter (function
+  | Tag constr -> f "@[| %s%s -> defns.%s@]@\n"
+    (match default with Some _ -> "Some " | None -> "")
+    constr (String.lowercase constr)
+  | Field (constr, ftype) ->
+    f "@[| %s -> defns.%s lor (%s.to_code ~host:defns.%s field)@]@\n"
+      (match default with
+      | Some _ -> "Some ("^constr^" field)"
+      | None -> constr^" field")
+      (String.lowercase constr) (String.capitalize ftype) ftype
+  ) constructors;
+  (match default with
+  | Some constr -> f "@[| None -> defns.%s@]@\n" constr
+  | None -> ());
+  f "@[)@]@\n@\n";
+  (match enum with One _ -> () | Any _ ->
+    (* TODO: What if bit is 0? *)
+    f "@[let is_set ~host t = let bit = _to_code ~host t in@]@\n";
+    f "@[  fun code -> (bit land code) = bit@]@\n";
+    f "@[let set ~host t =@]@\n";
+    (* TODO: What if bit is 0? *)
+    f "@[  let bit = _to_code ~host t in@]@\n";
+    f "@[  (lor) bit@]@\n";
+    f "@[let to_code ~host = function@]@\n";
+    f "@[| [] -> %s@]@\n" (match default with
+    | Some constr -> "(fst host)."^constr
+    | None -> "0");
+    f "@[| xs -> List.fold_left (fun code t -> set ~host t code) 0 xs@]@\n@\n"
+  );
+
+  (match enum with One _ ->
+    f "@[let of_code ~host code =@]@\n@[<hov 2>  ";
+    f "@[let (defns,index) = host in@]@\n";
+    if List.length fields = 0
+    then f "@[try Hashtbl.find_all index code@]@\n"
+    else begin
+      f "@[let mask = lnot (%s) in@]@\n"
+        (String.concat " lor " (List.map (fun (_, ftype) ->
+          (String.capitalize ftype)^".mask ~host:defns."^ftype
+         ) fields));
+      f "@[try@]@\n@[<hov 2>  ";
+      f "@[let prjs = Hashtbl.find_all index (code land mask) in@]@\n";
+      f "@[List.map (fun f -> f code) prjs@]@]@\n";
+    end;
+    f "@[with Not_found -> []@]@]@\n@\n";
+  | Any _ ->
+    f "@[let of_code ~host code = %s(@]@\n@[<hov 2>  "
+      (match use_module with Some m -> m^"." | None -> "");
+    f "@[let tags = List.filter@]@\n@[<hov 2>  ";
+    f "@[(fun t -> is_set ~host t code) [@]@\n@[<hov 2>  ";
+    List.iter (f "@[%s;@]@\n") tags;
+    f "@]@[] in@]@]@\n";
+    if List.length fields > 0 then f "@[let (defns,_) = host in@]@\n";
+    let rec fcons = function (* code is O(2^n) for n fields! *)
+      | (constr, ftype)::fs ->
+        f "@[(let bit = defns.%s in if bit land code = bit then (@]@\n"
+          (String.lowercase constr);
+        f "@[(%s (%s.of_code ~host:defns.%s code))::"
+          constr (String.capitalize ftype) ftype;
+        fcons fs;
+        f "@]@\n@[) else (@]@\n@[";
+        fcons fs;
+        f "@]@\n@[))@]@\n";
+      | [] -> f "@[tags@]@\n"
+    in
+    f "@[";
+    fcons fields;
+    f "@]";
+    f "@[)@]@]@\n@\n";
+  );
+
+  (* indexing *)
+  f "@[let index_of_defns defns =@]@\n@[<hov 2>  ";
+  (match use_module with Some m -> f "@[let open %s in@]@\n" m | None -> ());
+  f "@[let open Hashtbl in let h = create %d in@]@\n"
+    (List.length constructors);
+  List.iter (fun constr ->
+    let constr_defn = String.lowercase constr in
+    if List.length fields = 0
+    then f "@[add h defns.%s %s;@]@\n" constr_defn constr
+    else f "@[add h defns.%s (fun _ -> %s);@]@\n" constr_defn constr
+  ) tags;
+  List.iter (fun (constr,ftype) ->
+    f "@[add h defns.%s (fun code -> %s (%s.of_code ~host:defns.%s code));@]@\n"
+      (String.lowercase constr) constr (String.capitalize ftype) ftype
+  ) fields;
+  f "@[h@]@]@\n@\n";
+
+  (* externals *)
+  (* TODO: make these optional along with host value e.g. for protocols *)
+  let accessor_typ = ml_external_type_of_fn (void @-> returning bits) in
+  List.iter (function Tag constr | Field (constr,_) ->
+    let ext = {
+      ident = String.lowercase constr;
+      typ = accessor_typ;
+      primname = stub_prefix^constr;
+      primname_byte = None; (* TODO: is this ok? *)
+      attributes = { float=false; noalloc=true; };
+    } in
+    Format.fprintf fmt "@[%a@.@]" Emit_ML.extern ext
+  ) constructors;
+
+  (* host *)
+  (* TODO: could be per header bound where "host" = "library version" *)
+  f "@[let host =@]@\n@[<hov 2>  ";
+  f "@[let defns = {@]@\n@[<hov 2>  ";
+  List.iter (function Tag constr | Field (constr,_) ->
+    let name = String.lowercase constr in
+    f "@[%s = %s ();@]@\n" name name
+  ) (match default with
+  | Some constr -> (Tag constr)::constructors
+  | None -> constructors);
+  List.iter (fun (_,ftype) ->
+    f "@[%s = %s.host;@]@\n" ftype (String.capitalize ftype);
+  ) fields;
+  f "@[_mask = (%s);@]@\n" (String.concat " lor " (List.map (function
+  | Tag constr -> "("^(String.lowercase constr)^" ())"
+  | Field (constr, ftype) ->
+    "("^(String.lowercase constr)^" ()) lor ("
+    ^(String.capitalize ftype)^".(mask ~host))"
+  ) constructors));
+
+  f "@]@[} in (defns, index_of_defns defns)@]@\n@\n";
+
+  (* field mask *)
+  f "@[let mask ~host = let (defns,_) = host in defns._mask@]@\n";
+
+  (* utility *)
+  f "@[let %s = %s(function@]@\n"
+    (match enum with One _ -> "to_string" | Any _ -> "_to_string")
+    (match use_module with Some m -> m^"." | None -> "");
+  List.iter (function
+  | Tag constr -> f "@[| %s -> \"%s\"@]@\n" constr constr
+  | Field (constr, ftype) ->
+    f "@[| %s field -> \"%s\"^(%s.to_string field)@]@\n"
+      constr constr (String.capitalize ftype)
+  ) constructors;
+  f "@[)@]@]@\n";
+  (match enum with One _ -> () | Any _ ->
+    f "@[let to_string = function@]@\n@[<hov 2>  ";
+    f "@[| []  -> \"[]\"@]@\n";
+    f "@[| [t] -> \"[\"^(_to_string t)^\"]\"@]@\n";
+    f "@[| ts  -> \"[\"^(String.concat \",\" (List.map _to_string ts))^\"]\"@]@\n";
+  );
+
+  Format.fprintf fmt "@[end@]@\n";
+  Format.fprintf fmt "@[type %s = %s.t@]@\n@\n"
+    type_name (String.capitalize type_name);
