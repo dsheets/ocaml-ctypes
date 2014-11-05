@@ -7,20 +7,12 @@
 
 open Ctypes
 
-module type STRUCT =
+module type FUTURE_TYPES =
 sig
-  type _ typ
-  type (_, _) field
-
-  val structure : string -> 's structure typ
-  val union : string -> 's union typ
-
-  val field : 't typ -> string -> 'a Ctypes.typ ->
-    ('a, (('s, [<`Struct | `Union]) structured as 't)) field
-
-  val seal : (_, [< `Struct | `Union]) structured typ -> unit
+  include Ctypes_types.TYP
+  val lift : 'a Ctypes.typ -> 'a typ
 end
 
-module type BINDINGS = functor (F : STRUCT) -> sig end
+module type BINDINGS = functor (F : FUTURE_TYPES) -> sig end
 
 val write_c : Format.formatter -> (module BINDINGS) -> unit
