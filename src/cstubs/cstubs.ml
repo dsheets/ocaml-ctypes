@@ -69,3 +69,17 @@ let write_ml fmt ~prefix (module B : BINDINGS) =
   let () = Format.fprintf fmt "module CI = Cstubs_internals@\n@\n" in
   let module M = B((val foreign)) in
   finally ()
+
+let write_enum fmt ~prefix (module B : BINDINGS) =
+  let count = ref 0 in
+  begin
+    Format.fprintf fmt "enum@ %s_functions@ {@\n" prefix;
+    let module M = B(struct
+        type _ fn = unit
+        let foreign name _ =
+          incr count;
+          Format.fprintf fmt "  @[%s_name,@]@\n" name
+      end) in ();
+    Format.fprintf fmt "  @[%s_count = %d@]@\n" prefix !count;
+    Format.fprintf fmt "};@\n"
+  end
