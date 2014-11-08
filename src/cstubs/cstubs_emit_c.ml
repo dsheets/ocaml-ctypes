@@ -45,6 +45,7 @@ let rec cexp fmt : cexp -> unit = function
   | `Cast (ty, e) when cast_unnecessary ty e -> cexp fmt e
   | `Cast (ty, e) -> fprintf fmt "@[@[(%a)@]%a@]" format_ty ty cexp e
   | `Addr e -> fprintf fmt "@[&@[%a@]@]" cexp e
+  | `Funaddr {fname} -> fprintf fmt "%s" fname
 
 let rec clvalue fmt : clvalue -> unit = function
   | `Local _ as x -> cvar fmt x
