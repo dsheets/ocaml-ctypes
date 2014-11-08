@@ -40,3 +40,8 @@ val write_frame_structs : Format.formatter -> prefix:string -> (module BINDINGS)
 (** Write a C struct definition to hold the function identifier, arguments and
     return type for each foreign binding and a variable giving the struct of
     the largest struct. *)
+
+val write_remote_dispatcher : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
+(** Write a definition of a C function that reads a call frame struct from a
+    buffer and dispatches to the appropriate function. *)
+

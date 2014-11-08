@@ -110,3 +110,37 @@ let write_frame_structs fmt ~prefix (module B : BINDINGS) =
       end) in ();
     Format.fprintf fmt "@[enum@ {@ %s_frame_size@ =@ %d};@]@\n" prefix !max_size
   end
+
+let write_remote_dispatcher fmt ~prefix (module B : BINDINGS) =
+  let write x = Format.fprintf fmt x in
+  let rec arity : type a. a Static.fn -> int = function
+      Static.Returns _ -> 0
+    | Static.Function (_, f) -> 1 + arity f
+  in
+  let write_call fmt (name, nargs) =
+    write "@[%s(@[" name;
+    for i = 1 to nargs do
+      write "frame->x%d%(%)" i (if i <> nargs then ",@ " else "")
+    done;
+    write ")@]@]"
+  in
+  begin
+    write "@[#include <assert.h>@]@\n";
+    write "@[void@ %s_dispatch@[(int@ *call_buffer,@ void@ *arglock,@ void@ *retlock)@]@]@\n" prefix;
+    write "{@[<2>@\n@[@[for@ (;;)@]@\n{@[<2>@\n";
+    write "@[<2>cstubs_acquire_lock(arglock);@]@\n";
+    write "@[switch@ ((enum@ %s_functions)@ *call_buffer)@]@\n{@[@\n" prefix;
+    let module M = B(struct
+        type _ fn = unit
+        let foreign name typ =
+          let frame_name = Printf.sprintf "%s_frame" name in
+          write "@[case@ %s_name:@]@ {@ @[<2>@ @[" name;
+          write "@[<2>@[struct@ %s@ *frame@]@ @[=@ (struct@ %s@ *)call_buffer;@]@]@\n"
+            frame_name frame_name;
+          write "frame->return_value = @[%a@];@\n" write_call (name, arity typ);
+          write "cstubs_release_lock(retlock);@\n";
+          write "continue;@\n@]@]}@\n"
+      end) in ();
+  write "@[default:@ assert(0);@]@\n";
+  write "}@]@]@\n}@]@]\n}@."
+  end
