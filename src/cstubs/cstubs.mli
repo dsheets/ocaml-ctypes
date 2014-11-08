@@ -35,3 +35,8 @@ val write_ml : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
 val write_enum : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
 (** Write a C enum definition with one enumeration constant for each foreign
     binding and one enumeration constant giving the number of entries. *)
+
+val write_frame_structs : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
+(** Write a C struct definition to hold the function identifier, arguments and
+    return type for each foreign binding and a variable giving the struct of
+    the largest struct. *)

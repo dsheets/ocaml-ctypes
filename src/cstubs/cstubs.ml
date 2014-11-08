@@ -83,3 +83,30 @@ let write_enum fmt ~prefix (module B : BINDINGS) =
     Format.fprintf fmt "  @[%s_count = %d@]@\n" prefix !count;
     Format.fprintf fmt "};@\n"
   end
+
+let write_frame_structs fmt ~prefix (module B : BINDINGS) =
+  let make_tag name = (* prefix ^"_"^  *)name ^"_frame" in
+  let max_size = ref 0 in
+  begin
+    let module M = B(struct
+        type _ fn = unit
+        let foreign name fn =
+          let tag = make_tag name in
+          let s = Ctypes.structure tag in
+          let _ = Ctypes.field s "fn_name" Ctypes.int in
+          let rec loop : type a. int -> a Ctypes.fn -> unit =
+            fun i -> function
+              | Static.Function (typ, fn) ->
+                let _ = Ctypes.field s (Printf.sprintf "x%d" i) typ in
+                loop (i + 1) fn
+              | Static.Returns typ ->
+                ignore (Ctypes.field s "return_value" typ)
+          in
+          loop 1 fn;
+          Ctypes.seal s;
+          max_size := max !max_size (Ctypes.sizeof s);
+          Ctypes.format_typ fmt s;
+          Format.fprintf fmt ";@\n";
+      end) in ();
+    Format.fprintf fmt "@[enum@ {@ %s_frame_size@ =@ %d};@]@\n" prefix !max_size
+  end
