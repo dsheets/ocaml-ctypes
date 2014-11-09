@@ -144,3 +144,27 @@ let write_remote_dispatcher fmt ~prefix (module B : BINDINGS) =
   write "@[default:@ assert(0);@]@\n";
   write "}@]@]@\n}@]@]\n}@."
   end
+
+let write_remote_initializer_ml fmt ~prefix (module B : BINDINGS) =
+  let pr x = Format.fprintf fmt x in 
+  begin
+    pr "external %s_initialize : unit -> unit = \"%s_initialize\"@\n"
+      prefix prefix;
+    pr "let () = %s_initialize ()@\n" prefix;
+  end
+
+let write_remote_initializer_c fmt ~prefix (module B : BINDINGS) =
+  let pr x = Format.fprintf fmt x in 
+  begin
+    pr "void *%s_global_buffer = 0;@\n" prefix;
+    pr "void *%s_global_arg_lock = 0;@\n" prefix;
+    pr "void *%s_global_ret_lock = 0;@\n" prefix;
+    pr "value %s_initialize(value unit)@\n" prefix;
+    pr "{@\n";
+    pr "  cstubs_initialize_shared_memory(%s_global_buffer);@\n" prefix;
+    pr "  cstubs_initialize_arg_lock(%s_global_arg_lock);@\n" prefix;
+    pr "  cstubs_initialize_ret_lock(%s_global_ret_lock);@\n" prefix;
+    pr "  cstubs_start_remote_process();@\n";
+    pr "  return Val_unit;@\n";
+    pr "}@\n";
+  end

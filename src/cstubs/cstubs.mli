@@ -45,3 +45,10 @@ val write_remote_dispatcher : Format.formatter -> prefix:string -> (module BINDI
 (** Write a definition of a C function that reads a call frame struct from a
     buffer and dispatches to the appropriate function. *)
 
+val write_remote_initializer_ml : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
+(** Write some module initializer code that initializes the shared memory and
+    starts the remote process. *)
+
+val write_remote_initializer_c : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
+(** Write an initializer function that initializes the shared memory and
+    starts the remote process. *)
