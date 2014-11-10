@@ -5,7 +5,7 @@ INCPATH=$(shell ocamlfind -query ctypes)/..
 OCAMLPATH=$(shell ocamlc -where)
 CFLAGS=-ggdb -std=c99 -Wall -fPIC -I$(INCPATH) -I$(OCAMLPATH)
 OCAML_LDFLAGS=$(LDFLAGS:%=-cclib %)
-OSR=$(shell uname -r)
+OSR=$(shell uname)
 ifeq ($(OSR),Linux) 
 EXTRA_LINK_FLAGS=-lrt -lpthread
 endif
