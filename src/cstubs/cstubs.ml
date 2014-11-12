@@ -45,7 +45,7 @@ let write_foreign fmt bindings =
   Format.fprintf fmt
     "type 'a comp = 'a and 'a f = 'a Ctypes.fn@\n";
   Format.fprintf fmt
-    "let (returning, (@->)) = Ctypes.(returning, (@->))@\n@\n";
+    "let (returning, (@@->)) = Ctypes.(returning, (@@->))@\n@\n";
   Format.fprintf fmt
     "let foreign : type a b. string -> (a -> b) Ctypes.fn -> (a -> b) =@\n";
   Format.fprintf fmt
@@ -53,6 +53,36 @@ let write_foreign fmt bindings =
   ListLabels.iter bindings
     ~f:(fun (Bind (stub_name, external_name, fn)) ->
       Cstubs_generate_ml.case ~stub_name ~external_name fmt fn);
+  Format.fprintf fmt "@[<hov 2>@[|@ s,@ _@ ->@]@ ";
+  Format.fprintf fmt " @[@[Printf.fprintf@ stderr@ \"No match for %%s\" s@];";
+  Format.fprintf fmt "@ @[assert false@]@]@]@]@."
+
+let write_foreign_lwt fmt bindings =
+  Format.fprintf fmt
+    "type 'a fn = 'a@\n@\n";
+  Format.fprintf fmt
+    "type 'a comp = 'a Lwt.t@\n";
+  Format.fprintf fmt
+    "module CI = struct include Cstubs_internals@\n";
+  Format.fprintf fmt
+    "  type _ f =@\n";
+  Format.fprintf fmt
+    "  | Returns  : 'a Ctypes.typ   -> 'a Lwt.t f@\n";
+  Format.fprintf fmt
+    "  | Function : 'a Ctypes.typ * 'b f  -> ('a -> 'b) f@\n";
+  Format.fprintf fmt
+    "end@\n";
+  Format.fprintf fmt
+    "type 'a f = 'a CI.f@\n";
+  Format.fprintf fmt
+    "let (returning, (@@->)) = Ctypes.(returning, (@@->))@\n@\n";
+  Format.fprintf fmt
+    "let foreign : type a b. string -> (a -> b) f -> (a -> b) =@\n";
+  Format.fprintf fmt
+    "  fun name t -> match name, t with@\n@[<v>";
+  ListLabels.iter bindings
+    ~f:(fun (Bind (stub_name, external_name, fn)) ->
+      Cstubs_generate_ml.case_lwt ~stub_name ~external_name fmt fn);
   Format.fprintf fmt "@[<hov 2>@[|@ s,@ _@ ->@]@ ";
   Format.fprintf fmt " @[@[Printf.fprintf@ stderr@ \"No match for %%s\" s@];";
   Format.fprintf fmt "@ @[assert false@]@]@]@]@."
@@ -74,6 +104,23 @@ let gen_ml prefix fmt : (module FOREIGN') * (unit -> unit) =
    end),
   fun () -> write_foreign fmt !bindings
 
+let gen_ml_lwt prefix fmt : (module FOREIGN') * (unit -> unit) =
+  let bindings = ref []
+  and counter = ref 0 in
+  let var prefix name = incr counter;
+    Printf.sprintf "%s_%d_%s" prefix !counter name in
+  (module
+   struct
+     type 'a comp = 'a and 'a f = 'a Ctypes.fn
+     let (returning, (@->)) = Ctypes.(returning, (@->))
+     type 'a fn = unit
+     let foreign cname fn =
+       let name = var prefix cname in
+       bindings := Bind (cname, name, fn) :: !bindings;
+       Cstubs_generate_ml.extern ~stub_name:name ~external_name:name fmt fn
+   end),
+  fun () -> write_foreign_lwt fmt !bindings
+
 let write_c fmt ~prefix (module B : BINDINGS) =
   Format.fprintf fmt
     "#include \"ctypes/cstubs_internals.h\"@\n@\n";
@@ -82,6 +129,11 @@ let write_c fmt ~prefix (module B : BINDINGS) =
 let write_ml fmt ~prefix (module B : BINDINGS) =
   let foreign, finally = gen_ml prefix fmt in
   let () = Format.fprintf fmt "module CI = Cstubs_internals@\n@\n" in
+  let module M = B((val foreign)) in
+  finally ()
+
+let write_ml_lwt fmt ~prefix (module B : BINDINGS) =
+  let foreign, finally = gen_ml_lwt prefix fmt in
   let module M = B((val foreign)) in
   finally ()
 

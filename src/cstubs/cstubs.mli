@@ -39,6 +39,14 @@ val write_ml : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
     The generated code uses definitions exposed in the module
     [Cstubs_internals]. *)
 
+val write_ml_lwt : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
+(** [write_ml_lwt fmt ~prefix bindings] generates ML bindings for the functions
+    bound with [foreign] in [bindings].  The generated code conforms to the
+    {!FOREIGN} interface with type 'a comp = 'a Lwt.t.
+
+    The generated code uses definitions exposed in the module
+    [Cstubs_internals]. *)
+
 val write_enum : Format.formatter -> prefix:string -> (module BINDINGS) -> unit
 (** Write a C enum definition with one enumeration constant for each foreign
     binding and one enumeration constant giving the number of entries. *)
