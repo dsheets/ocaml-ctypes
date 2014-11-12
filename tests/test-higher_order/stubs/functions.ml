@@ -14,23 +14,23 @@ module Stubs (F: Cstubs.FOREIGN) =
 struct
   open F
   let higher_order_1 = foreign "higher_order_1"
-    (funptr (int @-> int @-> returning int) @-> int @-> int @-> returning int)
+    (funptr Ctypes.(int @-> int @-> returning int) @-> int @-> int @-> returning int)
 
   let higher_order_3 = foreign "higher_order_3"
-    (funptr (funptr (int @-> int @-> returning int) @->
+    (funptr Ctypes.(funptr Ctypes.(int @-> int @-> returning int) @->
              int @-> int @-> returning int) @->
-     funptr (int @-> int @-> returning int) @->
+     funptr Ctypes.(int @-> int @-> returning int) @->
      int @-> int @-> returning int)
 
   let returning_funptr = foreign "returning_funptr"
-    (int @-> returning (funptr (int @-> int @-> returning int)))
+    (int @-> returning (funptr Ctypes.(int @-> int @-> returning int)))
 
   let callback_returns_funptr = foreign "callback_returns_funptr"
-    (funptr (int @-> returning (funptr (int @-> returning int))) @->
+    (funptr Ctypes.(int @-> returning (funptr Ctypes.(int @-> returning int))) @->
      int @-> returning int)
 
   let register_callback = foreign "register_callback"
-      (funptr (void @-> returning int) @-> returning void)
+      (funptr Ctypes.(void @-> returning int) @-> returning void)
 
   let call_registered_callback = foreign "call_registered_callback"
       (int @-> int @-> returning void)

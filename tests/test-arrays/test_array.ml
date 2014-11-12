@@ -153,7 +153,7 @@ let test_pointer_to_array_arithmetic _ =
   assert_equal 12 a.(3).(2);
   assert_equal 1 a.(0).(0)
 
-module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a) =
+module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a and type 'a comp = 'a and type 'a f = 'a Ctypes.fn) =
 struct
   module M = Functions.Stubs(S)
   open M

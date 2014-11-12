@@ -20,7 +20,8 @@ let () = seal padded
    using stub generation. *)
 module Common (F: Cstubs.FOREIGN) =
 struct
-  let sum_union_components = F.foreign "sum_union_components"
+  open F
+  let sum_union_components = foreign "sum_union_components"
     (ptr padded @-> size_t @-> returning int64_t)
 end
 
@@ -28,7 +29,8 @@ end
    doesn't support passing unions by value. *)
 module Stubs_only(F : Cstubs.FOREIGN) =
 struct
-  let add_unions = F.foreign "add_unions"
+  open F
+  let add_unions = foreign "add_unions"
     (padded @-> padded @-> returning padded)
 end
 

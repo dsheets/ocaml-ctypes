@@ -9,8 +9,15 @@
 
 module type FOREIGN =
 sig
-  type 'a fn
-  val foreign : string -> ('a -> 'b) Ctypes.fn -> ('a -> 'b) fn
+  type 'a fn (* The result type *)
+
+  type 'a f   (* The abstract function type *)
+  type 'a comp (* The computation type *)
+
+  val returning : 'a Ctypes.typ -> 'a comp f
+  val (@->) : 'a Ctypes.typ -> 'b f -> ('a -> 'b) f
+
+  val foreign : string -> ('a -> 'b) f -> ('a -> 'b) fn
 end
 
 module type FOREIGN' = FOREIGN with type 'a fn = unit
@@ -20,6 +27,8 @@ module type BINDINGS = functor (F : FOREIGN') -> sig end
 let gen_c prefix fmt : (module FOREIGN') =
   (module
    struct
+     type 'a comp = 'a and 'a f = 'a Ctypes.fn
+     let (returning, (@->)) = Ctypes.(returning, (@->))
      let counter = ref 0
      let var prefix name = incr counter;
        Printf.sprintf "%s_%d_%s" prefix !counter name
@@ -33,6 +42,10 @@ type bind = Bind : string * string * ('a -> 'b) Ctypes.fn -> bind
 let write_foreign fmt bindings =
   Format.fprintf fmt
     "type 'a fn = 'a@\n@\n";
+  Format.fprintf fmt
+    "type 'a comp = 'a and 'a f = 'a Ctypes.fn@\n";
+  Format.fprintf fmt
+    "let (returning, (@->)) = Ctypes.(returning, (@->))@\n@\n";
   Format.fprintf fmt
     "let foreign : type a b. string -> (a -> b) Ctypes.fn -> (a -> b) =@\n";
   Format.fprintf fmt
@@ -51,6 +64,8 @@ let gen_ml prefix fmt : (module FOREIGN') * (unit -> unit) =
     Printf.sprintf "%s_%d_%s" prefix !counter name in
   (module
    struct
+     type 'a comp = 'a and 'a f = 'a Ctypes.fn
+     let (returning, (@->)) = Ctypes.(returning, (@->))
      type 'a fn = unit
      let foreign cname fn =
        let name = var prefix cname in
@@ -76,6 +91,8 @@ let write_enum fmt ~prefix (module B : BINDINGS) =
     Format.fprintf fmt "enum@ %s_functions@ {@\n" prefix;
     let module M = B(struct
         type _ fn = unit
+        type 'a comp = 'a and 'a f = 'a Ctypes.fn
+        let (returning, (@->)) = Ctypes.(returning, (@->))
         let foreign name _ =
           incr count;
           Format.fprintf fmt "  @[%s_name,@]@\n" name
@@ -89,6 +106,8 @@ let write_frame_structs fmt ~prefix (module B : BINDINGS) =
   let max_size = ref 0 in
   begin
     let module M = B(struct
+        type 'a comp = 'a and 'a f = 'a Ctypes.fn
+        let (returning, (@->)) = Ctypes.(returning, (@->))
         type _ fn = unit
         let foreign name fn =
           let tag = make_tag name in
@@ -131,6 +150,8 @@ let write_remote_dispatcher fmt ~prefix (module B : BINDINGS) =
     write "@[<2>cstubs_acquire_lock(arglock);@]@\n";
     write "@[switch@ ((enum@ %s_functions)@ *call_buffer)@]@\n{@[@\n" prefix;
     let module M = B(struct
+        type 'a comp = 'a and 'a f = 'a Ctypes.fn
+        let (returning, (@->)) = Ctypes.(returning, (@->))
         type _ fn = unit
         let foreign name typ =
           let frame_name = Printf.sprintf "%s_frame" name in

@@ -34,6 +34,7 @@ end
    doesn't support passing structs with union or array members. *)
 module Stubs_only(F : Cstubs.FOREIGN) =
 struct
+  open F
   type number
   let number : number union typ = union "number"
   let i = field number "i" int

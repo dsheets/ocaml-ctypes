@@ -134,7 +134,7 @@ let test_view_coercions _ =
   end in ()
 
 
-module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a) =
+module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a and type 'a comp = 'a and type 'a f = 'a Ctypes.fn) =
 struct
   module M = Functions.Stubs(S)
   open M

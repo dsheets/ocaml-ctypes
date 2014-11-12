@@ -320,7 +320,7 @@ let test_ctypes_array_of_bigarray _ =
   end
 
 
-module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a) =
+module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a and type 'a comp = 'a and type 'a f = 'a Ctypes.fn) =
 struct
   module M = Functions.Stubs(S)
   open M

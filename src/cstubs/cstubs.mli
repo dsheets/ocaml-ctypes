@@ -9,8 +9,15 @@
 
 module type FOREIGN =
 sig
-  type 'a fn
-  val foreign : string -> ('a -> 'b) Ctypes.fn -> ('a -> 'b) fn
+  type 'a fn (* The result type *)
+
+  type 'a f   (* The abstract function type *)
+  type 'a comp (* The computation type *)
+
+  val returning : 'a Ctypes.typ -> 'a comp f
+  val (@->) : 'a Ctypes.typ -> 'b f -> ('a -> 'b) f
+
+  val foreign : string -> ('a -> 'b) f -> ('a -> 'b) fn
 end
 
 module type BINDINGS = functor (F : FOREIGN with type 'a fn = unit) -> sig end
