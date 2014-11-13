@@ -2,6 +2,7 @@ set terminal eps
 set output 'bench_micro.eps'
 
 set key left top
+set key font ",15"
 
 set xlabel "Arity"
 
