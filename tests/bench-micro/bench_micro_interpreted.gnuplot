@@ -14,5 +14,7 @@ set ylabel "Time (ns)"
 
 set style data linespoints
 
-plot "interpreted_shared.txt" using 1:2 title "Cmeleon libffi Interpreted", \
+plot "remote.txt"             using 1:2 title "Cmeleon IPC Staged", \
+     "interpreted_shared.txt" using 1:2 title "Cmeleon libffi Interpreted", \
      "traditional.txt"        using 1:2 title "OCaml Manual"
+

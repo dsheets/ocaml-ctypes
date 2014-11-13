@@ -53,6 +53,7 @@ let benchmark_names = [
   "staged_no_functor";
   "traditional";
   "cowboy";
+  "remote";
 ] in
 let columns = 9 in
 

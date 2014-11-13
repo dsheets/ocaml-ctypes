@@ -63,21 +63,24 @@ module Staged_no_functor = struct
 end
 module Traditional = Make(Bindings.Traditional)
 module Cowboy = Make(Bindings.Cowboy)
+module Remote = Make(Bindings.Make(Bench_micro_remote))
 
-let zero_to_nine = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15]
+let args = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15]
 
 let () =
   Command.run (Bench.make_command [
-    Bench.Test.create_indexed ~name:"interpreted_local" ~args:zero_to_nine
+    Bench.Test.create_indexed ~name:"interpreted_local" ~args
       Interpreted_local.call;
-    Bench.Test.create_indexed ~name:"interpreted_shared" ~args:zero_to_nine
+    Bench.Test.create_indexed ~name:"interpreted_shared" ~args
       Interpreted_local.call;
-    Bench.Test.create_indexed ~name:"staged_functor" ~args:zero_to_nine
+    Bench.Test.create_indexed ~name:"staged_functor" ~args
       Staged_functor.call;
-    Bench.Test.create_indexed ~name:"staged_no_functor" ~args:zero_to_nine
+    Bench.Test.create_indexed ~name:"staged_no_functor" ~args
       Staged_no_functor.call;
-    Bench.Test.create_indexed ~name:"traditional" ~args:zero_to_nine
+    Bench.Test.create_indexed ~name:"traditional" ~args
       Traditional.call;
-    Bench.Test.create_indexed ~name:"cowboy" ~args:zero_to_nine
+    Bench.Test.create_indexed ~name:"cowboy" ~args
       Cowboy.call;
+    Bench.Test.create_indexed ~name:"remote" ~args
+      Remote.call;
   ])

@@ -1,34 +1,41 @@
-module type FOREIGN = sig
-  type 'a fn
-  val foreign : string -> ('a -> 'b) Ctypes.fn -> ('a -> 'b) fn
-end
+module type FOREIGN = Cstubs.FOREIGN
 
-type int5  = int -> int -> int -> int -> int -> int
-type int10 = int -> int -> int -> int -> int -> int5
+type 'a int5  = int -> int -> int -> int -> int -> 'a
+type 'a int10 = int -> int -> int -> int -> int -> 'a int5
+
+module Local_foreign = struct
+  type 'a fn = 'a
+  type 'a f = 'a Ctypes.fn
+  type 'a comp = 'a
+
+  let returning = Ctypes.returning
+  let (@->) = Ctypes.(@->)
+end
 
 module type API = sig
   type 'a fn
+  type 'a comp
 
-  val f_i0 : (unit -> int) fn
-  val f_i1 : (int  -> int) fn
-  val f_i2 : (int  -> int -> int) fn
-  val f_i3 : (int  -> int -> int -> int) fn
-  val f_i4 : (int  -> int -> int -> int -> int) fn
-  val f_i5 : int5 fn
-  val f_i6 : (int  -> int5) fn
-  val f_i7 : (int  -> int -> int5) fn
-  val f_i8 : (int  -> int -> int -> int5) fn
-  val f_i9 : (int  -> int -> int -> int -> int5) fn
-  val f_i10: int10 fn
-  val f_i11: (int  -> int10) fn
-  val f_i12: (int  -> int -> int10) fn
-  val f_i13: (int  -> int -> int -> int10) fn
-  val f_i14: (int  -> int -> int -> int -> int10) fn
-  val f_i15: (int  -> int -> int -> int -> int -> int10) fn
+  val f_i0 : (unit -> int comp) fn
+  val f_i1 : (int  -> int comp) fn
+  val f_i2 : (int  -> int -> int comp) fn
+  val f_i3 : (int  -> int -> int -> int comp) fn
+  val f_i4 : (int  -> int -> int -> int -> int comp) fn
+  val f_i5 : int comp int5 fn
+  val f_i6 : (int  -> int comp int5) fn
+  val f_i7 : (int  -> int -> int comp int5) fn
+  val f_i8 : (int  -> int -> int -> int comp int5) fn
+  val f_i9 : (int  -> int -> int -> int -> int comp int5) fn
+  val f_i10: int comp int10 fn
+  val f_i11: (int  -> int comp int10) fn
+  val f_i12: (int  -> int -> int comp int10) fn
+  val f_i13: (int  -> int -> int -> int comp int10) fn
+  val f_i14: (int  -> int -> int -> int -> int comp int10) fn
+  val f_i15: (int  -> int -> int -> int -> int -> int comp int10) fn
 end
 
 module Interpreter_local : FOREIGN with type 'a fn = 'a = struct
-  type 'a fn = 'a
+  include Local_foreign
 
   external f_i0_ptr : unit -> nativeint = "f_i0_ptr"
   external f_i1_ptr : unit -> nativeint = "f_i1_ptr"
@@ -71,15 +78,20 @@ module Interpreter_local : FOREIGN with type 'a fn = 'a = struct
 end
 
 module Interpreter_shared : FOREIGN with type 'a fn = 'a = struct
-  type 'a fn = 'a
+  include Local_foreign
 
   let foreign name fn = Foreign.foreign name fn
 end
 
-module Make (F : FOREIGN) : API with type 'a fn = 'a F.fn = struct
+module Make (F : FOREIGN) :
+  API with type 'a fn = 'a F.fn and type 'a comp = 'a F.comp =
+struct
   open Ctypes
+  open F
 
   type 'a fn = 'a F.fn
+  type 'a f = 'a F.f
+  type 'a comp = 'a F.comp
 
   let plus_int5 r = int @-> int @-> int @-> int @-> int @-> r
   let int5 = plus_int5 (returning int)
@@ -104,8 +116,8 @@ module Make (F : FOREIGN) : API with type 'a fn = 'a F.fn = struct
 
 end
 
-module Traditional : API with type 'a fn = 'a = struct
-  type 'a fn = 'a
+module Traditional : API with type 'a fn = 'a and type 'a comp = 'a = struct
+  include Local_foreign
 
   external f_i0 : unit -> int = "f_i0_caml"
   external f_i1 : int  -> int = "f_i1_caml"
@@ -125,8 +137,8 @@ module Traditional : API with type 'a fn = 'a = struct
   external f_i15: int  -> int -> int -> int -> int -> int -> int -> int -> int -> int -> int -> int -> int -> int -> int -> int = "f_i15_caml_byte" "f_i15_caml"
 end
 
-module Cowboy : API with type 'a fn = 'a = struct
-  type 'a fn = 'a
+module Cowboy : API with type 'a fn = 'a and type 'a comp = 'a = struct
+  include Local_foreign
 
   external f_i0 : unit -> int = "f_i0_cowboy" "noalloc"
   external f_i1 : int  -> int = "f_i1_cowboy" "noalloc"
