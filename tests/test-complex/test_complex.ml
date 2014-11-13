@@ -12,7 +12,7 @@ open Ctypes
 let testlib = Dl.(dlopen ~filename:"clib/libtest_functions.so" ~flags:[RTLD_NOW])
 
 
-module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a) =
+module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a and type 'a comp = 'a and type 'a f = 'a Ctypes.fn) =
 struct
   module M = Functions.Common(S)
   open M
@@ -58,7 +58,7 @@ struct
 end
 
 
-module Build_stub_tests(S : Cstubs.FOREIGN with type 'a fn = 'a) =
+module Build_stub_tests(S : Cstubs.FOREIGN with type 'a fn = 'a and type 'a f = 'a Ctypes.fn and type 'a comp = 'a) =
 struct
   module N = Functions.Stubs(S)
   open N

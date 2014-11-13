@@ -219,10 +219,15 @@ struct
                    allocates = false;
                    reads_ocaml_heap = false;
                    fn = Fn f; } in
+      let funcall = { fname = "CTYPES_FUNCALL";
+                      allocates = false;
+                      reads_ocaml_heap = false;
+                      fn = Fn (ptr void @-> f) } in
       let rec body : type a. _ -> a fn -> _ =
          fun vars -> function 
          | Returns t ->
-           (`App (fvar, (List.rev vars :> cexp list)), t) >>= fun x ->
+           let args = `Funaddr fvar :: (List.rev vars :> cexp list) in
+           (`App (funcall, args), t) >>= fun x ->
            (inj t x :> ccomp)
          | Function (x, f, t) ->
            begin match prj f (local x value) with

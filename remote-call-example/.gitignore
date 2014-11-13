@@ -1,0 +1,10 @@
+*.cmi
+*.cmx
+*.native
+*.o
+ex_remote_stubs.c
+ex_remote_server
+libex.so
+ex_generated.ml
+ex_stubs.c
+ex_shared_definitions.h

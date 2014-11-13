@@ -17,4 +17,15 @@
 #define CTYPES_PTR_OF_OCAML_STRING(s) \
   (String_val(Field(s, 1)) + Int_val(Field(s, 0)))
 
+/* #define CTYPES_FUNCALL(F, BUF, ...)  \ */
+/*   (*((struct F ## _frame *)BUF) =    \ */
+/*    (struct F ## _frame){             \ */
+/*     F ## _name, __VA_ARGS__          \ */
+/*    },                                \ */
+/*    cstubs_release_lock(BUF),         \ */
+/*    ((struct F ## _frame *)BUF)->return_value)  */
+#ifndef CTYPES_FUNCALL
+#define CTYPES_FUNCALL(F, ...)  ((F)(__VA_ARGS__))
+#endif
+
 #endif /* CSTUBS_INTERNALS_H */

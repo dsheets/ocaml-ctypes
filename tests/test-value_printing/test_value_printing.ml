@@ -15,7 +15,7 @@ let equal_ignoring_whitespace l r =
   strip_whitespace l = strip_whitespace r
 
 
-module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a) =
+module Common_tests(S : Cstubs.FOREIGN with type 'a fn = 'a and type 'a comp = 'a and type 'a f = 'a Ctypes.fn) =
 struct
   module M = Functions.Stubs(S)
   open M

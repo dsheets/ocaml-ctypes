@@ -27,7 +27,8 @@ type ml_pat = [ `Var of string
               | `Underscore
               | `Con of path * ml_pat list ]
 
-type ml_exp = [ `Ident of path 
+type ml_exp = [ `Ident of path
+              | `Async of ml_exp
               | `Project of ml_exp * path
               | `MakePtr of ml_exp * ml_exp
               | `MakeStructured of ml_exp * ml_exp
@@ -117,6 +118,8 @@ struct
 
   let rec ml_exp appl_parens fmt (e : ml_exp) =
     match appl_parens, e with
+    | _, `Async e -> fprintf fmt "(Lwt_preemptive.detach (fun () -> %a) ())"
+                       (ml_exp NoApplParens) e
     | _, `Ident x -> ident fmt x
     | _, `Project (e, l) -> fprintf fmt "%a.%a" (ml_exp ApplParens) e ident l
     | ApplParens, `Appl (f, p) -> fprintf fmt "@[(%a@;<1 2>%a)@]" (ml_exp NoApplParens) f (ml_exp ApplParens) p
@@ -391,8 +394,25 @@ let wrapper : type a. a fn -> string -> polarity -> ml_pat * ml_exp option =
     { trivial = true; pat } -> (pat, None)
   | { exp; args; pat } -> (pat, Some (`Fun (args, exp)))
 
+let wrapper_lwt : type a. a fn -> string -> polarity -> ml_pat * ml_exp option =
+  fun fn f pol -> match wrapper_body fn (`Ident (path_of_string f)) pol with
+    { trivial = true; pat } ->
+      let x = fresh_var () in
+      (pat, Some (`Fun ([x], `Async (`Appl (`Ident (path_of_string f),
+                                            `Ident (path_of_string x))))))
+  | { exp; args; pat } -> (pat, Some (`Fun (args, `Async exp)))
+
 let case ~stub_name ~external_name fmt fn =
   let p, e = match wrapper fn external_name In with
+      pat, None -> pat, `Ident (path_of_string external_name)
+    | pat, Some e -> pat, e
+  in
+  Format.fprintf fmt "@[<hov 2>@[<h 2>|@ @[%S,@ @[%a@]@]@ ->@]@ "
+    stub_name Emit_ML.(ml_pat NoApplParens) p;
+  Format.fprintf fmt "@[<hov 2>@[%a@]@]@]@." Emit_ML.(ml_exp ApplParens) e
+
+let case_lwt ~stub_name ~external_name fmt fn =
+  let p, e = match wrapper_lwt fn external_name In with
       pat, None -> pat, `Ident (path_of_string external_name)
     | pat, Some e -> pat, e
   in
@@ -413,4 +433,4 @@ let inverse_case ~register_name ~constructor name fmt fn : unit =
   Format.fprintf fmt "|@[ @[%S, %a@] -> %s %s (%a)@]@\n"
     name Emit_ML.(ml_pat NoApplParens) p register_name constructor
     Emit_ML.(ml_exp ApplParens) 
-e
+    e
