@@ -16,9 +16,14 @@
 #include "ctypes_raw_pointer.h"
 #include "ctypes_managed_buffer_stubs.h"
 
-static void finalize_free(value v)
+static void finalize_stat_free(value v)
 {
   caml_stat_free(*((void **)Data_custom_val(v)));
+}
+
+static void finalize_free(value v)
+{
+  free(*((void **)Data_custom_val(v)));
 }
 
 static int compare_pointers(value l_, value r_)
@@ -37,6 +42,17 @@ static intnat hash_address(value l)
 
 static struct custom_operations managed_buffer_custom_ops = {
   "ocaml-ctypes:managed_buffer",
+  finalize_stat_free,
+  compare_pointers,
+  hash_address,
+  /* Managed buffers are not serializable. */
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default
+};
+
+static struct custom_operations managed_buffer_free_custom_ops = {
+  "ocaml-ctypes:managed_buffer_free",
   finalize_free,
   compare_pointers,
   hash_address,
@@ -74,8 +90,9 @@ value ctypes_allocate_zero(value count_, value size_)
   int size = Int_val(size_);
   int count = Int_val(count_);
   CAMLlocal1(block);
-  block = caml_alloc_custom(&managed_buffer_custom_ops, sizeof(void*), 0, 1);
+  block = caml_alloc_custom(&managed_buffer_free_custom_ops, sizeof(void*), 0, 1);
   void *p = calloc(count, size);
+  if (p == NULL && count != 0 && size != 0) caml_raise_out_of_memory ();
   void **d = (void **)Data_custom_val(block);
   *d = p;
   CAMLreturn(block);
