@@ -122,8 +122,10 @@ let (<-@) : type a. a ptr -> a -> unit
 let from_voidp = castp
 let to_voidp p = castp Void p
 
-let allocate_n : type a. ?finalise:(a ptr -> unit) -> a typ -> count:int -> a ptr
-  = fun ?finalise reftyp ~count ->
+let allocate_n
+  : type a. ?finalise:(a ptr -> unit) -> ?zero:bool -> a typ -> count:int
+  -> a ptr
+  = fun ?finalise ?(zero=false) reftyp ~count ->
     let package p =
       CPointer (Fat.make ~managed:p ~reftyp (Stubs.block_address p))
     in
@@ -131,14 +133,17 @@ let allocate_n : type a. ?finalise:(a ptr -> unit) -> a typ -> count:int -> a pt
       | Some f -> Gc.finalise (fun p -> f (package p))
       | None -> ignore
     in
-    let p = Stubs.allocate (count * sizeof reftyp) in begin
-      finalise p;
-      package p
-    end
+    let p = if zero
+      then Stubs.allocate_zero count (sizeof reftyp)
+      else Stubs.allocate (count * sizeof reftyp)
+    in
+    finalise p;
+    package p
 
-let allocate : type a. ?finalise:(a ptr -> unit) -> a typ -> a -> a ptr
-  = fun ?finalise reftype v ->
-    let p = allocate_n ?finalise ~count:1 reftype in begin
+let allocate
+  : type a. ?finalise:(a ptr -> unit) -> ?zero:bool -> a typ -> a -> a ptr
+  = fun ?finalise ?zero reftype v ->
+    let p = allocate_n ?finalise ?zero ~count:1 reftype in begin
       p <-@ v;
       p
     end

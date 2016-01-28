@@ -184,15 +184,17 @@ val from_voidp : 'a typ -> unit ptr -> 'a ptr
 val to_voidp : _ ptr -> unit ptr
 (** Conversion to [void *]. *)
 
-val allocate : ?finalise:('a ptr -> unit) -> 'a typ -> 'a -> 'a ptr
-(** [allocate t v] allocates a fresh value of type [t], initialises it with
-    [v] and returns its address.  The argument [?finalise], if present, will be
-    called just before the memory is freed.  *)
+val allocate : ?finalise:('a ptr -> unit) -> ?zero:bool -> 'a typ -> 'a -> 'a ptr
+(** [allocate t v] allocates a fresh value of type [t], initialises it
+    with [v] and returns its address.  The argument [?finalise], if
+    present, will be called just before the memory is freed.  If
+    [?zero] is true (default false), the memory will be zeroed.  *)
 
-val allocate_n : ?finalise:('a ptr -> unit) -> 'a typ -> count:int -> 'a ptr
-(** [allocate_n t ~count:n] allocates a fresh array with element type [t] and
-    length [n], and returns its address.  The argument [?finalise], if present,
-    will be called just before the memory is freed.  *)
+val allocate_n : ?finalise:('a ptr -> unit) -> ?zero:bool -> 'a typ -> count:int -> 'a ptr
+(** [allocate_n t ~count:n] allocates a fresh array with element type
+    [t] and length [n], and returns its address.  The argument
+    [?finalise], if present, will be called just before the memory is
+    freed.  If [?zero] is true (default false), the memory will be zeroed.  *)
 
 val ptr_compare : 'a ptr -> 'a ptr -> int
 (** If [p] and [q] are pointers to elements [i] and [j] of the same array then

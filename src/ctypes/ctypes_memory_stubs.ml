@@ -13,6 +13,10 @@ open Ctypes_ptr
    C heap. *)
 type managed_buffer
 
+(* Allocate a region of stable zeroed memory managed by a custom block. *)
+external allocate_zero : int -> int -> managed_buffer
+  = "ctypes_allocate_zero"
+
 (* Allocate a region of stable memory managed by a custom block. *)
 external allocate : int -> managed_buffer
   = "ctypes_allocate"

@@ -67,6 +67,20 @@ value ctypes_allocate(value size_)
   CAMLreturn(block);
 }
 
+/* allocate_zero : int -> int -> managed_buffer */
+value ctypes_allocate_zero(value count_, value size_)
+{
+  CAMLparam2(count_, size_);
+  int size = Int_val(size_);
+  int count = Int_val(count_);
+  CAMLlocal1(block);
+  block = caml_alloc_custom(&managed_buffer_custom_ops, sizeof(void*), 0, 1);
+  void *p = calloc(count, size);
+  void **d = (void **)Data_custom_val(block);
+  *d = p;
+  CAMLreturn(block);
+}
+
 /* block_address : managed_buffer -> immediate_pointer */
 value ctypes_block_address(value managed_buffer)
 {
