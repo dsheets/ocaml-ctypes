@@ -141,9 +141,9 @@ let allocate_n
     package p
 
 let allocate
-  : type a. ?finalise:(a ptr -> unit) -> ?zero:bool -> a typ -> a -> a ptr
-  = fun ?finalise ?zero reftype v ->
-    let p = allocate_n ?finalise ?zero ~count:1 reftype in begin
+  : type a. ?finalise:(a ptr -> unit) -> a typ -> a -> a ptr
+  = fun ?finalise reftype v ->
+    let p = allocate_n ?finalise ~zero:false ~count:1 reftype in begin
       p <-@ v;
       p
     end
